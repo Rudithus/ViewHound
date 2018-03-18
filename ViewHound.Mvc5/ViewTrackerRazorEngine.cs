@@ -30,10 +30,9 @@ namespace Jumanji.Framework.ViewTracker
         }
         private void InterceptEngineResult(ViewEngineResult result, HttpContextBase httpContext)
         {
-            var viewResults = httpContext.Items["ViewResults"] as List<RazorView>;
             if (result.View is RazorView resultView)
             {
-                viewResults.Add(resultView);
+                _hound.AddViewUse(resultView.ViewPath);
             }
         }
         public void ReleaseView(ControllerContext controllerContext, IView view)

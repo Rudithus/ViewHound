@@ -17,10 +17,7 @@ namespace ViewHound.Mvc5.Example
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
-        }
-        public override void Init()
-        {
-            base.Init();
+
             Hound.StartTracking(this, ViewEngines.Engines);
         }
     }

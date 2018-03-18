@@ -14,7 +14,6 @@ namespace Jumanji.Framework.ViewTracker
 
         private readonly IDictionary<string, int> _viewUsage;
         private readonly HoundOptions _houndOptions;
-        private bool _tracking;
         public Hound() : this(new DirectoryHelper(), new HoundOptions()) { }
         public Hound(IDirectoryHelper directoryHelper) : this(directoryHelper, new HoundOptions()) { }
         public Hound(IDirectoryHelper directoryHelper, HoundOptions houndOptios)
@@ -25,33 +24,9 @@ namespace Jumanji.Framework.ViewTracker
 
         public void StartTracking(HttpApplication application, ViewEngineCollection viewEngines)
         {
-            application.BeginRequest += Application_BeginRequest;
-
-            application.EndRequest += Application_EndRequest;
-
-            if (_tracking) return;
             var engines = viewEngines.Select(v => new ViewTrackerRazorEngine(v, this)).ToList();
-
             viewEngines.Clear();
             engines.ForEach(viewEngines.Add);
-
-
-
-            _tracking = true;
-        }
-
-        private void Application_BeginRequest(object sender, EventArgs e)
-        {
-            var httpContextItems = ((HttpApplication)sender).Context.Items;
-            httpContextItems.Add("ViewResults", new List<RazorView>());
-        }
-
-        private void Application_EndRequest(object source, EventArgs e)
-        {
-            var httpContextItems = ((HttpApplication)source).Context.Items;
-            var viewResults = httpContextItems["ViewResults"] as List<RazorView>;
-
-
         }
 
         public void AddViewUse(string viewPath)
