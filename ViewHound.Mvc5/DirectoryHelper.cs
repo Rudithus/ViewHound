@@ -3,8 +3,11 @@ using System.IO;
 using System.Linq;
 using System.Web.Hosting;
 
-namespace Jumanji.Framework.ViewTracker
+namespace ViewHound.Mvc5
 {
+    /// <summary>
+    /// Wrapper around Directory static class 
+    /// </summary>
     public class DirectoryHelper : IDirectoryHelper
     {
         public string[] GetFiles(string path, string pattern, SearchOption searchOption)
@@ -14,14 +17,15 @@ namespace Jumanji.Framework.ViewTracker
             return paths;
 
         }
-        string GetRelativePath(string filespec, string folder)
+
+        private static string GetRelativePath(string filespec, string folder)
         {
-            Uri pathUri = new Uri(filespec);
+            var pathUri = new Uri(filespec);
             if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
             {
                 folder += Path.DirectorySeparatorChar;
             }
-            Uri folderUri = new Uri(folder);
+            var folderUri = new Uri(folder);
             return $"~/{Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString())}";
         }
     }

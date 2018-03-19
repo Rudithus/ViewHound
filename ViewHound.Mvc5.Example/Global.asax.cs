@@ -1,8 +1,4 @@
-﻿using Jumanji.Framework.ViewTracker;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Web.Mvc;
+﻿using System.Web.Mvc;
 using System.Web.Optimization;
 using System.Web.Routing;
 
@@ -10,7 +6,7 @@ namespace ViewHound.Mvc5.Example
 {
     public class MvcApplication : System.Web.HttpApplication
     {
-        private static Hound Hound = new Hound();
+        private static readonly Hound Hound = new Hound();
         protected void Application_Start()
         {
             AreaRegistration.RegisterAllAreas();
@@ -19,6 +15,7 @@ namespace ViewHound.Mvc5.Example
             BundleConfig.RegisterBundles(BundleTable.Bundles);
 
             Hound.StartTracking(this, ViewEngines.Engines);
+            Hound.UseHoundPage(RouteTable.Routes, ControllerBuilder.Current);
         }
     }
 }

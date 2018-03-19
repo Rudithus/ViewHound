@@ -1,35 +1,60 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Web;
 using System.Web.Hosting;
 using System.Web.Mvc;
+using System.Web.Routing;
+using System.Web.SessionState;
 
-namespace Jumanji.Framework.ViewTracker
+namespace ViewHound.Mvc5
 {
     public class Hound : IHound
     {
 
-        private readonly IDictionary<string, int> _viewUsage;
-        private readonly HoundOptions _houndOptions;
-        public Hound() : this(new DirectoryHelper(), new HoundOptions()) { }
-        public Hound(IDirectoryHelper directoryHelper) : this(directoryHelper, new HoundOptions()) { }
-        public Hound(IDirectoryHelper directoryHelper, HoundOptions houndOptios)
+        private ConcurrentDictionary<string, int> _viewUsage;
+        private readonly IDirectoryHelper _directoryHelper;
+        public Hound() : this(new DirectoryHelper()) { }
+        public Hound(IDirectoryHelper directoryHelper)
         {
-            _houndOptions = houndOptios;
-            _viewUsage = directoryHelper.GetFiles(_houndOptions.BasePath, "*.cshtml", SearchOption.AllDirectories).ToDictionary(f => f, _ => 0);
+            _directoryHelper = directoryHelper;
         }
 
+        /// <summary>
+        /// Wraps existing view engines with ViewTrackerRazorEngine.
+        /// </summary>
+        /// <param name="application">Mvc Application</param>
+        /// <param name="viewEngines">View Engines</param>
         public void StartTracking(HttpApplication application, ViewEngineCollection viewEngines)
         {
+            _viewUsage = new ConcurrentDictionary<string, int>(_directoryHelper
+                .GetFiles(HostingEnvironment.ApplicationPhysicalPath, "*.cshtml", SearchOption.AllDirectories)
+                .ToDictionary(f => f, _ => 0));
             var engines = viewEngines.Select(v => new ViewTrackerRazorEngine(v, this)).ToList();
             viewEngines.Clear();
             engines.ForEach(viewEngines.Add);
         }
 
-        public void AddViewUse(string viewPath)
+        public void UseHoundPage(RouteCollection routes, ControllerBuilder controllerBuilder)
+        {
+            var handler = new MvcRouteHandler();            
+            routes.MapRoute(
+                name: "HoundRoute",
+                url: "Hound/{action}",
+                namespaces: new[] { typeof(HoundController).Namespace });
+
+            var currentControllerFactory = controllerBuilder.GetControllerFactory();
+            var houndControllerFactory = new HoundControllerFactory(currentControllerFactory, this);
+            controllerBuilder.SetControllerFactory(houndControllerFactory);
+        }
+
+        /// <summary>
+        /// Records View Use
+        /// </summary>
+        /// <param name="viewPath">path of the used view</param>
+        public void RecordViewUse(string viewPath)
         {
             if (_viewUsage.ContainsKey(viewPath))
             {
@@ -41,27 +66,37 @@ namespace Jumanji.Framework.ViewTracker
             }
         }
 
-        public string GetUsedViewsLog()
+        /// <summary>
+        /// Returns used view paths and their use counts
+        /// </summary>
+        /// <returns>Used view paths and counts</returns>
+        public List<ViewUse> GetUsedViewsLog()
         {
-            return string.Join(Environment.NewLine,
-                _viewUsage
-                    .Where(v => v.Value > 0)
-                    .Select(v => $"{v.Key} : {v.Value}"));
+            return _viewUsage
+                .Where(v => v.Value > 0)
+                .Select(v => new ViewUse { ViewPath = v.Key, UseCount = v.Value })
+                .ToList();
         }
-
-        public string GetUnUsedViewsLog()
+        /// <summary>
+        /// Returns unused view paths and their use counts
+        /// </summary>
+        /// <returns>Unused view paths and counts</returns>
+        public List<ViewUse> GetUnUsedViewsLog()
         {
-            return string.Join(Environment.NewLine,
-                _viewUsage
-                    .Where(v => v.Value == 0)
-                    .Select(v => $"{v.Key} : {v.Value}"));
+            return _viewUsage
+                .Where(v => v.Value == 0)
+                .Select(v => new ViewUse() { UseCount = v.Value, ViewPath = v.Key })
+                .ToList();
         }
-
-        public string GetAllViewsLog()
+        /// <summary>
+        /// Returns all view paths and their use counts
+        /// </summary>
+        /// <returns>All view paths and counts</returns>
+        public List<ViewUse> GetAllViewsLog()
         {
-            return string.Join(Environment.NewLine,
-                _viewUsage
-                    .Select(v => $"{v.Key} : {v.Value}"));
+            return _viewUsage
+                .Select(v => new ViewUse() { UseCount = v.Value, ViewPath = v.Key })
+                .ToList();
         }
     }
 
@@ -81,18 +116,31 @@ namespace Jumanji.Framework.ViewTracker
         }
     }
 
-    public enum LoggingType
+    public class HoundControllerFactory : IControllerFactory
     {
-        LogUsed,
-        LogUnused,
-        LogAll
-    }
-    public interface IHound
-    {
-        void StartTracking(HttpApplication application, ViewEngineCollection viewEngines);
-        string GetUsedViewsLog();
-        string GetUnUsedViewsLog();
-        string GetAllViewsLog();
-        void AddViewUse(string viewPath);
+        private readonly IHound _hound;
+        private readonly IControllerFactory _controllerFactory;
+
+        public HoundControllerFactory(IControllerFactory controllerFactory, IHound hound)
+        {
+            _controllerFactory = controllerFactory;
+            _hound = hound;
+        }
+
+        public IController CreateController(RequestContext requestContext, string controllerName)
+        {
+            return controllerName == nameof(HoundController) ? new HoundController(_hound) : _controllerFactory.CreateController(requestContext, controllerName);
+        }
+
+        public SessionStateBehavior GetControllerSessionBehavior(RequestContext requestContext, string controllerName)
+        {
+
+            return _controllerFactory.GetControllerSessionBehavior(requestContext, controllerName);
+        }
+
+        public void ReleaseController(IController controller)
+        {
+            _controllerFactory.ReleaseController(controller);
+        }
     }
 }

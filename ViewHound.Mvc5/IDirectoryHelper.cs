@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace Jumanji.Framework.ViewTracker
+namespace ViewHound.Mvc5
 {
     public interface IDirectoryHelper
     {
