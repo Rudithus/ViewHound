@@ -67,9 +67,9 @@
   <ItemGroup>
     <Compile Include="DirectoryHelper.cs" />
     <Compile Include="Hound.cs" />
-    <Compile Include="HoundController.cs" />
     <Compile Include="IDirectoryHelper.cs" />
     <Compile Include="IHound.cs" />
+    <Compile Include="MvcApplicationExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ViewTrackerRazorEngine.cs" />
     <Compile Include="ViewUse.cs" />

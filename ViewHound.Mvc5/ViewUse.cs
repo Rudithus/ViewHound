@@ -3,6 +3,6 @@
     public class ViewUse
     {
         public string ViewPath { get; set; }
-        public int UseCount { get; set; }
+        public ulong UseCount { get; set; }
     }
 }

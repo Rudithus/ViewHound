@@ -11,10 +11,13 @@ using System.Web.SessionState;
 
 namespace ViewHound.Mvc5
 {
+    /// <summary>
+    /// Tracks view usage across the mvc application
+    /// </summary>
     public class Hound : IHound
     {
 
-        private ConcurrentDictionary<string, int> _viewUsage;
+        private ConcurrentDictionary<string, ulong> _viewUsage = new ConcurrentDictionary<string, ulong>();
         private readonly IDirectoryHelper _directoryHelper;
         public Hound() : this(new DirectoryHelper()) { }
         public Hound(IDirectoryHelper directoryHelper)
@@ -29,25 +32,12 @@ namespace ViewHound.Mvc5
         /// <param name="viewEngines">View Engines</param>
         public void StartTracking(HttpApplication application, ViewEngineCollection viewEngines)
         {
-            _viewUsage = new ConcurrentDictionary<string, int>(_directoryHelper
+            _viewUsage = new ConcurrentDictionary<string, ulong>(_directoryHelper
                 .GetFiles(HostingEnvironment.ApplicationPhysicalPath, "*.cshtml", SearchOption.AllDirectories)
-                .ToDictionary(f => f, _ => 0));
+                .ToDictionary(f => f, _ => (ulong)0));
             var engines = viewEngines.Select(v => new ViewTrackerRazorEngine(v, this)).ToList();
             viewEngines.Clear();
             engines.ForEach(viewEngines.Add);
-        }
-
-        public void UseHoundPage(RouteCollection routes, ControllerBuilder controllerBuilder)
-        {
-            var handler = new MvcRouteHandler();            
-            routes.MapRoute(
-                name: "HoundRoute",
-                url: "Hound/{action}",
-                namespaces: new[] { typeof(HoundController).Namespace });
-
-            var currentControllerFactory = controllerBuilder.GetControllerFactory();
-            var houndControllerFactory = new HoundControllerFactory(currentControllerFactory, this);
-            controllerBuilder.SetControllerFactory(houndControllerFactory);
         }
 
         /// <summary>
@@ -98,49 +88,13 @@ namespace ViewHound.Mvc5
                 .Select(v => new ViewUse() { UseCount = v.Value, ViewPath = v.Key })
                 .ToList();
         }
-    }
 
-    public class HoundOptions
-    {
-        public bool LogAfterEveryRequest { get; internal set; }
-        public string BasePath { get; internal set; } = HostingEnvironment.ApplicationPhysicalPath;
-        public HoundOptions()
+        /// <summary>
+        /// Resets use statistics
+        /// </summary>
+        public void ResetUsage()
         {
-
-        }
-
-        public HoundOptions(bool logAfterEveryRequest, string basePath)
-        {
-            BasePath = basePath;
-            LogAfterEveryRequest = logAfterEveryRequest;
-        }
-    }
-
-    public class HoundControllerFactory : IControllerFactory
-    {
-        private readonly IHound _hound;
-        private readonly IControllerFactory _controllerFactory;
-
-        public HoundControllerFactory(IControllerFactory controllerFactory, IHound hound)
-        {
-            _controllerFactory = controllerFactory;
-            _hound = hound;
-        }
-
-        public IController CreateController(RequestContext requestContext, string controllerName)
-        {
-            return controllerName == nameof(HoundController) ? new HoundController(_hound) : _controllerFactory.CreateController(requestContext, controllerName);
-        }
-
-        public SessionStateBehavior GetControllerSessionBehavior(RequestContext requestContext, string controllerName)
-        {
-
-            return _controllerFactory.GetControllerSessionBehavior(requestContext, controllerName);
-        }
-
-        public void ReleaseController(IController controller)
-        {
-            _controllerFactory.ReleaseController(controller);
+            _viewUsage = new ConcurrentDictionary<string, ulong>(_viewUsage.ToDictionary(v => v.Key, _ => (ulong)0));
         }
     }
 }
